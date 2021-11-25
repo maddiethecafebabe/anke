@@ -1,0 +1,17 @@
+[package]
+name = "anke"
+version = "0.1.0"
+edition = "2021"
+authors = ["Madeline S. <maddie@cafebabe.date>"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anke-core = { path = "framework/anke-core" }
+booru = { path = "sites/booru" }
+dotenv = "0.15.0"
+itertools = "0.10.1"
+serde = { version = "1.0.130", features = ["derive"] }
+
+[workspace]
+members = ["framework/*", "sites/*"]
