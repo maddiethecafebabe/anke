@@ -1,62 +1,44 @@
-use anke_core::{log, FilterNet, OutputFilter, Pipeline, Sieve};
+use anke_core::{Aggregator, EntryBox, Factory, Pipeline, State};
+use toml::{self, Value};
 
-use super::HostsConfig;
+use crate::config::Config;
 
 pub struct App {
-    mapping: Vec<(String, String, Box<dyn Sieve>)>,
-    result_filters: Vec<Box<dyn OutputFilter>>,
-    hosts: HostsConfig,
+    config: Config,
+    aggregators: Vec<Box<dyn Aggregator<Item = EntryBox, PipelineState = State>>>,
 }
 
 impl App {
-    pub fn new(hosts: HostsConfig) -> Self {
+    pub fn new(config: Config) -> Self {
         Self {
-            hosts: hosts,
-            mapping: Vec::new(),
-            result_filters: Vec::new(),
+            config,
+            aggregators: Vec::new(),
         }
     }
 
-    pub fn map_patterns_to_sieve<FN: Into<FilterNet>, F: Sieve + Clone + 'static>(
-        mut self,
-        net: FN,
-        sieve: F,
-    ) -> Self {
-        let net = net.into();
-        if let Some((site, tags)) = self
-            .hosts
-            .sites
-            .iter()
-            .find(|(site, _)| net.any_matches_on(site))
-        {
-            let sites = vec![site.clone(); tags.len()];
-            let tags = tags.clone();
-            let sieves = vec![Box::new(sieve); tags.len()];
+    pub async fn run(self) -> () {
+        Pipeline::new(State { })
+            .set_aggregators(self.aggregators)
+            .setup_and_run()
+            .await
+    }
 
-            for (site, (tag, sieve)) in sites
-                .into_iter()
-                .zip(tags.into_iter().zip(sieves.into_iter()))
-            {
-                self.mapping.push((site, tag, sieve));
+    pub fn register_aggregator_factory<F: Factory>(mut self) -> Self {
+        lazy_static! {
+            static ref EMPTY_VALUE: Value = toml::from_str("").unwrap();
+        }
+
+        let name = <F as Factory>::name();
+
+        if let Some(config) = self.config.sources.get(name) {
+            let config: <F as Factory>::Config =
+                toml::from_str(&toml::to_string(config).unwrap()).unwrap();
+
+            for agg in <F as Factory>::build_aggregators(config) {
+                self.aggregators.push(agg);
             }
-        } else {
-            log::warn!("Couldn't find a site for mapping");
         }
-        self
-    }
 
-    pub fn add_result_filter<F: OutputFilter + 'static>(mut self, filter: F) -> Self {
-        self.result_filters.push(Box::new(filter));
         self
-    }
-
-    pub async fn run_forever(self) -> ! {
-        Pipeline::new(self.result_filters)
-            .spawn_receiver_task()
-            .await
-            .spawn_sender_tasks(self.mapping)
-            .await
-            .loop_endless()
-            .await
     }
 }

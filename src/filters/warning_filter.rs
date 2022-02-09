@@ -5,6 +5,8 @@ pub struct WarningFilter;
 
 #[async_trait]
 impl OutputFilter for WarningFilter {
+    type Item = EntryBox;
+
     async fn filter(&mut self, entry: EntryBox) -> Option<EntryBox> {
         log::warn!("Unfiltered entry came through: {:?}", entry);
         None

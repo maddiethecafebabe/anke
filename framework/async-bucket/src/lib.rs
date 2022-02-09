@@ -1,8 +1,8 @@
-use tokio::time::{self, Duration, Instant};
 use std::cell::Cell;
-use std::mem;
 use std::cmp;
+use std::mem;
 use std::sync::{Mutex, MutexGuard};
+use tokio::time::{self, Duration, Instant};
 
 pub struct AsyncBucket {
     rate: Duration,
@@ -17,7 +17,7 @@ impl AsyncBucket {
             rate,
             ctr_limit: limit,
             ctr: Mutex::new(Cell::new(0)),
-            last_decrement: Mutex::new(Instant::now())
+            last_decrement: Mutex::new(Instant::now()),
         }
     }
 
@@ -35,7 +35,7 @@ impl AsyncBucket {
 
         let now = Instant::now();
         let elapsed = now.duration_since(*lock);
-       
+
         let cur_lock = self.ctr.lock().unwrap();
         let cur = cur_lock.get();
         let inc_by = elapsed.as_millis() as usize / self.rate.as_millis() as usize;
@@ -45,15 +45,15 @@ impl AsyncBucket {
         }
 
         *lock = now;
-         cur_lock.set(
-            cmp::min(
-                self.ctr_limit,
-                cur + inc_by
-            )
-        );
+        cur_lock.set(cmp::min(self.ctr_limit, cur + inc_by));
 
-        tracing::debug!("Old: {}, New: {}, inc_by: {}, elapsed: {:?}", 
-        cur, cur_lock.get(), inc_by, elapsed);
+        tracing::debug!(
+            "Old: {}, New: {}, inc_by: {}, elapsed: {:?}",
+            cur,
+            cur_lock.get(),
+            inc_by,
+            elapsed
+        );
 
         mem::drop(lock);
         cur_lock
@@ -67,8 +67,7 @@ impl AsyncBucket {
 
         if cur < cnt {
             return Err(cnt - cur);
-        }
-        else {
+        } else {
             lock.set(cur - cnt);
             mem::drop(lock);
             return Ok(());
@@ -84,11 +83,13 @@ impl AsyncBucket {
                 Err(delta) => {
                     let sleep_for = self.rate * delta as u32;
 
-                    tracing::trace!("Got {} too few in bucket, sleeping for {:?}", delta, self.rate);
+                    tracing::trace!(
+                        "Got {} too few in bucket, sleeping for {:?}",
+                        delta,
+                        self.rate
+                    );
 
-                    time::sleep(
-                        sleep_for
-                    ).await                    
+                    time::sleep(sleep_for).await
                 }
             };
         }

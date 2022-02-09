@@ -19,11 +19,6 @@ impl fmt::Debug for DiscordWebhookFilter {
 }
 
 impl DiscordWebhookFilter {
-    pub fn from_env() -> Self {
-        Self {
-            webhook: env::var("DISCORD_WEBHOOK_URL")
-                .expect("Please provide an URL for the webhook in the DISCORD_WEBHOOK_URL env var")        }
-    }
 
     async fn send(&self, entry: &EntryBox) -> reqwest::Result<reqwest::Response> {
         let body = serde_json::json!({
@@ -66,6 +61,8 @@ impl DiscordWebhookFilter {
 
 #[async_trait]
 impl OutputFilter for DiscordWebhookFilter {
+    type Item = EntryBox;
+
     async fn filter(&mut self, entry: EntryBox) -> Option<EntryBox> {
         if let Err(e) = self.send(&entry).await {
             log::error!("Error during webhook POST: {:?}", e);

@@ -27,21 +27,23 @@ pub fn setup() -> Result<()> {
     Ok(())
 }
 
-mod filter_net;
-pub use filter_net::FilterNet;
-
-mod sieve;
-pub use sieve::{AsyncSender, Sieve, SieveContext};
-
-mod output_filter;
-pub use output_filter::OutputFilter;
-
 mod entry;
 pub use entry::{Entry, EntryBox};
 
 pub mod url;
 
-pub mod pipeline;
-pub use pipeline::Pipeline;
-
 pub use async_bucket;
+
+use async_aggregation_pipeline::prelude;
+
+mod state;
+pub use state::State;
+
+pub type Pipeline = prelude::Pipeline<EntryBox, State>;
+
+mod factory;
+pub use factory::Factory;
+
+pub use toml;
+
+pub use prelude::{Aggregator, PipelineResult, Context, OutputFilter};
