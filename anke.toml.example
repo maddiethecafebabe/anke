@@ -1,0 +1,11 @@
+[main]
+
+[sources.gelbooru]
+tags = ["1girl", "dross", "rating:safe"]
+
+[outputs.discord]
+webhooks = [
+    "...", "..."
+]
+
+[outputs.dummy]
