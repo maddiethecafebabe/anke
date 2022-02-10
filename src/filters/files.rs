@@ -6,7 +6,7 @@ use std::error::Error;
 
 #[derive(Debug, Deserialize)]
 pub struct FilesConfig {
-    root: PathBuf
+    root: Option<PathBuf>
 }
 
 #[derive(Debug)]
@@ -24,7 +24,7 @@ impl FilesSavingFilter {
     async fn save_to(&self, url: &String, name: &str) -> Result<(), Box<dyn Error>> {
         let content = reqwest::get(url).await?.bytes().await?;
         let mut bytes_reader = std::io::Cursor::new(content);
-        let mut dest = std::fs::File::create(self.config.root.join(name))?;
+        let mut dest = std::fs::File::create(self.config.root.clone().unwrap().join(name))?;
 
         std::io::copy(&mut bytes_reader, &mut dest)?;
 
@@ -41,7 +41,7 @@ impl OutputFilter for FilesSavingFilter {
             let name = url.split("/").last().unwrap();
 
             if let Err(why) = self.save_to(url, name).await {
-                error!("{} while downloading {} => {:?}", why, url, self.config.root.join(name));
+                error!("{} while downloading {} => {:?}", why, url, self.config.root.clone().unwrap().join(name));
             }
         }
 
@@ -55,6 +55,10 @@ impl OutputFilterFactory for FilesSavingFilter {
     const NAME: &'static str = "files";
 
     fn build_filters(config: Self::Config) -> Vec<Box<dyn OutputFilter<Item = EntryBox>>> {
-        vec![Box::new(FilesSavingFilter::new(config))]
+        if config.root.is_some() {
+            vec![Box::new(FilesSavingFilter::new(config))]
+        } else  {
+            vec![]
+        }
     }
 }

@@ -1,11 +1,41 @@
 [main]
+# location of the database file
+database = "./anke.db"
 
 [sources.gelbooru]
-tags = ["1girl", "dross", "rating:safe"]
+# whether to embed tag and artist information
+# in the extra fields.
+# e.g. for discord webhooks that will make out half of each embed
+tags_in_embed = false
 
-[outputs.discord]
-webhooks = [
-    "...", "..."
+# how many items to scrape at once for a new tag
+fresh_poll_limit = 1
+
+# how many items to scrape at once for an existing tag
+poll_limit = 8
+
+# the tags to listen for, can be anything gelbooru accepts
+tags = [
+    "cynthia_(pokemon)", "helltaker"
 ]
 
-[outputs.dummy]
+[outputs.discord]
+# if set this will override how long to wait (in seconds) after encountering a 429
+# discord sucks and will make you wait like 10 times as long if you actually comply
+override_discord_ratelimit = 30.0
+
+[outputs.discord.webhooks]
+# gets mirrored to all of the listed hooks
+testing_server = "https://discordapp.com/api/webhooks/5112321311235842239/f7RssdckQuAPbVCPvUlNOhSADawddawd_asd"
+the_cooler_server = "https://discordapp.com/api/webhooks/2358511232131142239/kQuAPbVCPvUlNOaf7RssdcsdasdADawddawd_asd"
+
+[outputs.files]
+# path of an *existing* directory
+# to not store files, remove this line
+root = "./files"
+
+[outputs.blacklist]
+# tags to globally blacklist
+# how good the matching works depends on the scrapers' Entry::tags implementation
+# and in context of imageboards: whether it already has been tagged
+tags = ["vore", "gore"]
