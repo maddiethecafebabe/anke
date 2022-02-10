@@ -6,3 +6,6 @@ pub use warning_filter::WarningFilter;
 
 pub mod blacklist;
 pub use blacklist::BlacklistFilter;
+
+pub mod files;
+pub use files::FilesSavingFilter;

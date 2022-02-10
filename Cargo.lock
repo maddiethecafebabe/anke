@@ -47,6 +47,7 @@ dependencies = [
  "itertools",
  "lazy_static",
  "serde",
+ "tokio",
  "toml",
  "tracing",
 ]

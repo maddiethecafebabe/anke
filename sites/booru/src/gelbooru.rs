@@ -68,11 +68,12 @@ impl GelbooruPage {
             .await
             .unwrap();
 
-        let v: Vec<GelbooruId> = ID_REGEX
+        let mut v: Vec<GelbooruId> = ID_REGEX
             .captures_iter(&raw)
             .map(|c| c["id"].into())
             .collect();
 
+        v.reverse();
         self.post_cnt = v.len();
         self.posts = v;
     }
@@ -104,6 +105,7 @@ pub struct GelbooruAggregator {
     storage: TokenStorageConnection,
     fresh_poll_limit: isize,
     poll_limit: isize,
+    tags_in_embed: bool,
 }
 
 impl GelbooruAggregator {
@@ -112,6 +114,7 @@ impl GelbooruAggregator {
         state: &State,
         fresh_poll_limit: isize,
         poll_limit: isize,
+        tags_in_embed: bool,
     ) -> Box<dyn Aggregator<Item = EntryBox, PipelineState = State>> {
         let storage = state.storage_for("gelbooru", &tag);
         Box::new(Self {
@@ -119,6 +122,7 @@ impl GelbooruAggregator {
             storage,
             fresh_poll_limit,
             poll_limit,
+            tags_in_embed
         })
     }
 
@@ -128,10 +132,11 @@ impl GelbooruAggregator {
         let mut r = Vec::new();
         while let Some(id) = page.next_post().await {
             limit -= 1;
-            if limit > 0 && id >= until {
+            debug!("[{}] limit({}) > 0 = {}, id({}) > until({}) = {}", self.tag, limit, limit > 0, id.0, until.0, id > until);
+            if limit >= 0 && id > until {
+                debug!("[{}] Pushing {}!", &self.tag, id.0);
                 r.push(id)
             } else {
-                debug!("limit({}) > 0 = {}, id({}) <= until({}) = {}", limit, limit > 0, id.0, until.0, id <= until);
                 break;
             }
         }
@@ -166,7 +171,7 @@ impl Aggregator for GelbooruAggregator {
             info!("Post: {}", post.0);
 
             ctx.sender
-                .send(Box::new(GelbooruEntry::fetch_from_id(post).await?))
+                .send(Box::new(GelbooruEntry::fetch_from_id(post, self.tags_in_embed).await?))
                 .await;
         }
 
@@ -183,10 +188,11 @@ struct GelbooruEntry {
     post_url: String,
     artist: Option<String>,
     characters: HashSet<String>,
+    tags_in_embed: bool,
 }
 
 impl GelbooruEntry {
-    pub async fn fetch_from_id(id: GelbooruId) -> reqwest::Result<Self> {
+    pub async fn fetch_from_id(id: GelbooruId, tags_in_embed: bool) -> reqwest::Result<Self> {
         let url = format!(
             "https://gelbooru.com/index.php?page=post&s=view&id={}",
             id.0
@@ -194,10 +200,10 @@ impl GelbooruEntry {
 
         let raw = reqwest::get(&url).await?.text().await?;
 
-        Ok(Self::extract_info(url, raw))
+        Ok(Self::extract_info(url, raw, tags_in_embed))
     }
 
-    fn extract_info(post_url: String, raw: String) -> Self {
+    fn extract_info(post_url: String, raw: String, tags_in_embed: bool) -> Self {
         lazy_static! {
             static ref IMAGE_URL_REG: Regex = Regex::new(r#"image\.attr\('src','(?P<url>.+)'\);"#).unwrap();
             static ref TAGS_REG: Regex = Regex::new(r#"data-tags="(?P<tags>(\s?([^\s"])*\s?)*)"#).unwrap();
@@ -225,6 +231,7 @@ impl GelbooruEntry {
             image_url,
             artist,
             characters,
+            tags_in_embed
         }
     }
 }
@@ -237,7 +244,7 @@ impl Entry for GelbooruEntry {
     fn title(&self) -> Option<String> {
         let mut chars = itertools::join(self.characters.iter().map(|c| format!("\"{}\"", c)), ",");
         if chars.is_empty() {
-            chars = "untagged characters".into()
+            chars = "untagged character(s)".into()
         }
 
         if let Some(artist) = &self.artist {
@@ -259,15 +266,17 @@ impl Entry for GelbooruEntry {
     fn build_extra_fields(&self) -> HashMap<String, String> {
         let mut map = HashMap::new();
 
-        map.insert(
-            "Characters".into(),
-            itertools::join(self.characters.iter(), " "),
-        );
+        if self.tags_in_embed {
+            map.insert(
+                "Tags".into(),
+                itertools::join(self.tags.iter(), ", "),
+            );
 
-        if let Some(artist) = &self.artist {
-            map.insert("artist".into(), artist.clone());
+            if let Some(artist) = &self.artist {
+                map.insert("artist".into(), artist.clone());
+            }
         }
-
+        
         map
     }
 }

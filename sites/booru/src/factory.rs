@@ -19,6 +19,9 @@ pub struct GelbooruConfig {
 
     #[serde(default = "_produce_n_1")]
     pub(crate) poll_limit: isize,
+
+    #[serde(default)]
+    pub(crate) tags_in_embed: bool,
 }
 
 pub struct GelbooruFactory;
@@ -36,7 +39,7 @@ impl AggregatorFactory for GelbooruFactory {
         config
             .tags
             .into_iter()
-            .map(|t| GelbooruAggregator::new(t, state, config.fresh_poll_limit, config.poll_limit))
+            .map(|t| GelbooruAggregator::new(t, state, config.fresh_poll_limit, config.poll_limit, config.tags_in_embed))
             .collect()
     }
 }

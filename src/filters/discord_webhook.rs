@@ -13,6 +13,7 @@ use std::time::Duration;
 pub struct DiscordWebhookFilter {
     webhook: String,
     dest: String,
+    override_discord_ratelimit: Option<f64>,
 }
 
 impl fmt::Debug for DiscordWebhookFilter {
@@ -22,10 +23,11 @@ impl fmt::Debug for DiscordWebhookFilter {
 }
 
 impl DiscordWebhookFilter {
-    fn new(dest: String, webhook: String) -> Self {
+    fn new(dest: String, webhook: String, override_discord_ratelimit: Option<f64>) -> Self {
         Self {
             webhook,
-            dest
+            dest,
+            override_discord_ratelimit
         }
     }
 
@@ -72,11 +74,23 @@ impl DiscordWebhookFilter {
             match res.status() {
                 StatusCode::OK | StatusCode::NO_CONTENT => return Ok(res),
                 StatusCode::TOO_MANY_REQUESTS => {
-                    let js = &res.json::<Value>().await?["retry_after"];
-                    if let Some(int) = js.as_f64() {
-                        log::debug!("Hit discord ratelimit, sleeping for {} seconds", int);
-                        time::sleep(Duration::from_secs_f64(int)).await;
+                    let mut int = 60.0;
+
+                    if let Some(delay) = self.override_discord_ratelimit {
+                        int = delay;
                     }
+                    else {
+                        let js = &res.json::<Value>().await?["retry_after"];
+                        if let Some(delay) = js.as_f64() {
+                            // so this is complete bullshit, if you actually do what this recommends
+                            // you have to wait for like 3-10 minutes, just to get ratelimited after 5 requests again;
+                            // for that reason you can override whether or not to listen to discord or just wait a certain amount of seconds
+                            int = delay;
+                            
+                        }
+                    }
+                    log::warn!("Hit discord ratelimit, sleeping for {} seconds", int);
+                    time::sleep(Duration::from_secs_f64(int)).await;
                 }
                 _ => {
                     return res.error_for_status();
@@ -102,6 +116,7 @@ impl OutputFilter for DiscordWebhookFilter {
 #[derive(Debug, Deserialize)]
 pub struct DiscordConfig {
     webhooks: HashMap<String, String>,
+    override_discord_ratelimit: Option<f64>,
 }
 
 impl OutputFilterFactory for DiscordWebhookFilter {
@@ -114,7 +129,7 @@ impl OutputFilterFactory for DiscordWebhookFilter {
 
         for (dest, url) in config.webhooks {
 
-            filters.push(Box::new(DiscordWebhookFilter::new(dest, url)))
+            filters.push(Box::new(DiscordWebhookFilter::new(dest, url, config.override_discord_ratelimit)))
         }
 
         filters
