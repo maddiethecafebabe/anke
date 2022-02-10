@@ -14,6 +14,7 @@ itertools = "0.10.1"
 lazy_static = "1.4.0"
 serde = { version = "1.0.130", features = ["derive"] }
 toml = "0.5.8"
+tracing = "0.1.30"
 
 [workspace]
 members = ["framework/*", "sites/*"]

@@ -1,15 +1,18 @@
 use anke_core::{
-    async_trait, log, reqwest,
+    async_trait,
+    log, reqwest,
     serde_json::{self, Value},
-    EntryBox, OutputFilter,
     tokio::time,
+    EntryBox, OutputFilter, OutputFilterFactory,
 };
-use std::env;
+use serde::Deserialize;
+use std::collections::HashMap;
 use std::fmt;
 use std::time::Duration;
 
 pub struct DiscordWebhookFilter {
     webhook: String,
+    dest: String,
 }
 
 impl fmt::Debug for DiscordWebhookFilter {
@@ -19,21 +22,44 @@ impl fmt::Debug for DiscordWebhookFilter {
 }
 
 impl DiscordWebhookFilter {
+    fn new(dest: String, webhook: String) -> Self {
+        Self {
+            webhook,
+            dest
+        }
+    }
 
     async fn send(&self, entry: &EntryBox) -> reqwest::Result<reqwest::Response> {
-        let body = serde_json::json!({
+        log::debug!("Sending {:?} into {}", entry, self.dest);
+
+        let mut body = serde_json::json!({
             "embeds" : [
                 {
-                    "title": entry.title().await.map(|t| t.into()).unwrap_or(Value::Null),
+                    "title": entry.title().map(|t| t.into()).unwrap_or(Value::Null),
                     "color": 10034204u32,
-                    "url": entry.title_url().await.map(|t| t.into()).unwrap_or(Value::Null),
+                    "url": entry.title_url().map(|t| t.into()).unwrap_or(Value::Null),
                     "image": {
-                        "url": entry.image_url().await.map(|t| t.into()).unwrap_or(Value::Null),
+                        "url": entry.image_url().map(|t| t.into()).unwrap_or(Value::Null),
                     }
                 }
             ]
         });
 
+
+
+        body["embeds"][0]["fields"] = Value::Array({
+            let mut fields = Vec::new();
+            for (name, body) in entry.build_extra_fields() {
+                fields.push(serde_json::json!(
+                    {
+                        "name": name,
+                        "value": body
+                    }
+                ))            
+            }
+            fields
+        });
+        
         loop {
             use reqwest::StatusCode;
 
@@ -51,10 +77,11 @@ impl DiscordWebhookFilter {
                         log::debug!("Hit discord ratelimit, sleeping for {} seconds", int);
                         time::sleep(Duration::from_secs_f64(int)).await;
                     }
-                },
-                _ => { return res.error_for_status(); }
+                }
+                _ => {
+                    return res.error_for_status();
+                }
             }
-    
         }
     }
 }
@@ -69,5 +96,27 @@ impl OutputFilter for DiscordWebhookFilter {
         }
 
         Some(entry)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DiscordConfig {
+    webhooks: HashMap<String, String>,
+}
+
+impl OutputFilterFactory for DiscordWebhookFilter {
+    type Config = DiscordConfig;
+
+    const NAME: &'static str = "discord";
+
+    fn build_filters(config: Self::Config) -> Vec<Box<dyn OutputFilter<Item = EntryBox>>> {
+        let mut filters: Vec<Box<dyn OutputFilter<Item = EntryBox>>> = Vec::new();
+
+        for (dest, url) in config.webhooks {
+
+            filters.push(Box::new(DiscordWebhookFilter::new(dest, url)))
+        }
+
+        filters
     }
 }

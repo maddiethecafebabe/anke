@@ -1,29 +1,42 @@
-use anke_core::{Aggregator, EntryBox, Factory, State};
+use anke_core::{Aggregator, AggregatorFactory, EntryBox, State};
 use serde::Deserialize;
 
 use crate::gelbooru::GelbooruAggregator;
 
+fn _produce_16() -> isize {
+    16
+}
+fn _produce_n_1() -> isize {
+    -1
+}
+
 #[derive(Debug, Deserialize)]
 pub struct GelbooruConfig {
     pub(crate) tags: Vec<String>,
+
+    #[serde(default = "_produce_16")]
+    pub(crate) fresh_poll_limit: isize,
+
+    #[serde(default = "_produce_n_1")]
+    pub(crate) poll_limit: isize,
 }
 
-pub struct GelbooruFactory {}
+pub struct GelbooruFactory;
 
-impl Factory for GelbooruFactory {
+impl AggregatorFactory for GelbooruFactory {
     type Config = GelbooruConfig;
 
-    fn name() -> &'static str {
-        "gelbooru"
-    }
+    const NAME: &'static str = "gelbooru";
 
     fn build_aggregators(
         config: GelbooruConfig,
+        state: &State,
     ) -> Vec<Box<dyn Aggregator<Item = EntryBox, PipelineState = State>>> {
+
         config
             .tags
             .into_iter()
-            .map(GelbooruAggregator::new)
+            .map(|t| GelbooruAggregator::new(t, state, config.fresh_poll_limit, config.poll_limit))
             .collect()
     }
 }
@@ -33,17 +46,16 @@ pub struct DanbooruConfig {
     pub(crate) tags: Vec<String>,
 }
 
-pub struct DanbooruFactory {}
+pub struct DanbooruFactory;
 
-impl Factory for DanbooruFactory {
+impl AggregatorFactory for DanbooruFactory {
     type Config = DanbooruConfig;
 
-    fn name() -> &'static str {
-        "danbooru"
-    }
+    const NAME: &'static str = "danbooru";
 
     fn build_aggregators(
         config: DanbooruConfig,
+        _state: &State,
     ) -> Vec<Box<dyn Aggregator<Item = EntryBox, PipelineState = State>>> {
         for _tag in config.tags {}
 

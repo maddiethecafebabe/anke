@@ -4,7 +4,9 @@ use serde::Deserialize;
 use toml::Value;
 
 #[derive(Deserialize, Debug)]
-pub struct MainConfig {}
+pub struct MainConfig {
+    pub database: String,
+}
 
 #[derive(Deserialize, Debug)]
 pub struct Config {

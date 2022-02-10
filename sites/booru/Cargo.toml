@@ -8,7 +8,8 @@ edition = "2021"
 [dependencies]
 anke-core = { path = "../../framework/anke-core" }
 async-trait = "0.1.52"
-itertools = "0.10.1"
+itertools = "0.10.3"
 lazy_static = "1.4.0"
 regex = "1.5.4"
 serde = { version = "1.0.136", features = ["derive"] }
+tracing = "0.1.30"
