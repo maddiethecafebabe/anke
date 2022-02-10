@@ -12,7 +12,7 @@ mod app;
 use app::App;
 
 mod filters;
-use filters::{BlacklistFilter, DiscordWebhookFilter, FilesSavingFilter};
+use filters::*;
 
 use booru::{DanbooruFactory, GelbooruFactory};
 
@@ -30,6 +30,7 @@ async fn main() -> Result<()> {
         .register_aggregator_factory::<GelbooruFactory>()
         .register_aggregator_factory::<DanbooruFactory>()
         .register_filter_factory::<BlacklistFilter>()
+        .register_filter_factory::<DedupeFilter>()
         .register_filter_factory::<DiscordWebhookFilter>()
         .register_filter_factory::<FilesSavingFilter>()
         .run()

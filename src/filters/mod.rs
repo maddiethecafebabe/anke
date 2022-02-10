@@ -9,3 +9,6 @@ pub use blacklist::BlacklistFilter;
 
 pub mod files;
 pub use files::FilesSavingFilter;
+
+pub mod dedupe;
+pub use dedupe::DedupeFilter;
