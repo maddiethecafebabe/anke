@@ -1,0 +1,9 @@
+1. twitter support
+2. danbooru support
+3. kemono.party support
+4. integrated tester
+   - runs automatically when a factory is instantiated and tasked to produce an aggregator
+   - to catch changes in a sites html instantly instead of getting cryptic errors
+   - the abort is overridable with a config, just in case
+5. propagate errors a lot better, currently a lot of things just unwrap
+6. pixiv support
